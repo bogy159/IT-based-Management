@@ -52,6 +52,56 @@ server <- function(input, output, session) {
                  "Stock_Derivative_Static",
                  temp_db_Stock_Derivative_Static,
                  append = TRUE)
+    
+
+    d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
+    d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
+    Nd1 <- pnorm(d1,lower.tail = TRUE)
+    Nd2 <- pnorm(d2,lower.tail = TRUE)
+
+
+    PresentValue <- 100 #???
+    assetOrLiability<- 1 #???
+
+    temp_db_Economic_Resource_Risky_Income <-
+      cbind.data.frame(
+        as.character(input$ti_Contracting_Date2),
+        Nd1,
+        input$ti_Do_Stock_Price2,
+        assetOrLiability
+      )
+    names(temp_db_Economic_Resource_Risky_Income) <-
+      c(
+        "timestamp",
+        "Nd1t",
+        "Value",
+        "Asset_Or_Liability"
+      )
+    dbWriteTable(sqlite,
+                 "Economic_Resource_Risky_Income",
+                 temp_db_Economic_Resource_Risky_Income,
+                 append = TRUE)
+
+
+
+    temp_db_Economic_Resource_Fixed_Income <-
+      cbind.data.frame(
+        as.character(input$ti_Do_timestamp2),
+        PresentValue,
+        assetOrLiability
+      )
+    names(temp_db_Economic_Resource_Fixed_Income) <-
+      c(
+        "timestamp",
+        "Present_Value",
+        "Asset_Or_Liability"
+      )
+    dbWriteTable(sqlite,
+                 "Economic_Resource_Fixed_Income",
+                 temp_db_Economic_Resource_Fixed_Income,
+                 append = TRUE)
+    
+    
   })
   observeEvent(input$button_Do2, {
     temp_db_Stock_Pricing_Dynamic <-
@@ -69,19 +119,32 @@ server <- function(input, output, session) {
                  temp_db_Stock_Pricing_Dynamic,
                  append = TRUE)
     
-    
     js$collapse("box_Plan2")
   })
   
   observeEvent(input$button_Plan2, {
     
     # d1 <- (log(100/100) + (0.05 + (0.2^2)/2) * 1)/(0.2*(1^-2))
-    d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
+    # d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
+    # d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
     # neshtotam <- as.numeric(input$ti_Do_Stock_Price2) + as.numeric(input$ti_Exercise_Or_Forward_Price2)
     # pnorm(d1,lower.tail = TRUE)
+    # Nd1 <- pnorm(d1,lower.tail = TRUE)
+    # Nd2 <- pnorm(d2,lower.tail = TRUE)
+    
+    PresentValue <-100#???
+    
+    t <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(input$ti_Do_timestamp2), unit="weeks"))/52.25
+    t <- round(t, digits = 2)
+    
+    d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
     Nd1 <- pnorm(d1,lower.tail = TRUE)
+    d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+    Nd2 <- pnorm(d2,lower.tail = TRUE)
+    
     output$to_Plan2 <- renderText(({paste("N(d1) =", Nd1)}))
-    asset<-1 #???
+    
+    assetOrLiability<-1 #???
     
     
     temp_db_Economic_Resource_Risky_Income <-
@@ -89,7 +152,7 @@ server <- function(input, output, session) {
         as.character(input$ti_Do_timestamp2),
         Nd1,
         input$ti_Do_Stock_Price2,
-        asset
+        assetOrLiability
       )
     names(temp_db_Economic_Resource_Risky_Income) <-
       c(
@@ -105,25 +168,72 @@ server <- function(input, output, session) {
     
     
     
+    temp_db_Economic_Resource_Fixed_Income <-
+      cbind.data.frame(
+        as.character(input$ti_Do_timestamp2),
+        PresentValue,
+        assetOrLiability
+      )
+    names(temp_db_Economic_Resource_Fixed_Income) <-
+      c(
+        "timestamp",
+        "Present_Value",
+        "Asset_Or_Liability"
+      )
+    dbWriteTable(sqlite,
+                 "Economic_Resource_Fixed_Income",
+                 temp_db_Economic_Resource_Fixed_Income,
+                 append = TRUE)
+    
+    
+    
     js$collapse("box_Check2")
   })
   
   observeEvent(input$button_Check2, {
     
-    d1t1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.75)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.75)))
-    d1t2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.5)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.5)))
-    d1t3 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.25)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.25)))
-    d1t4 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0)))
+    # d1t1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.75)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.75)))
+    # d1t2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.5)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.5)))
+    # d1t3 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.25)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.25)))
+    # d1t4 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0)))
+    
+    # d1t1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * (as.numeric(input$ti_Contract_Size2) - as.numeric(input$ti_Contract_Size2) / 4))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.75)))
+    
+    
     # d12 <- (log(100/100) + (0.05 + (0.2^2)/2) * 0.75)/(0.2*(sqrt(0.75)))
-    Nd1t1 <-pnorm(d1t1,lower.tail = TRUE)
-    # input$button_Plan2$Nd1
-    # DeltaNd1 <- as.numeric(output$to_Plan2) - Nd1t1
-    # input$to_Plan2
-    output$to_Check2 <- renderText(({paste("Delta N(d1) =", )}))
+    # Nd1t1 <-pnorm(d1t1,lower.tail = TRUE)
+     
+    baseERRI <- dbReadTable(sqlite, "Economic_Resource_Risky_Income")
+    lastValues <- as.numeric(tail(baseERRI[,3],2))
+    
+    Nd1t<- as.numeric(lastValues[2])
+    Nd1tm1<- as.numeric(lastValues[1])
+    
+    
+    
+    
+    output$to_Check2 <- renderText(({paste("Delta N(d1) =", Nd1t - Nd1tm1)}))
   
     # output$to_Check2 <- renderText(d12)
     js$collapse("box_Act2")
   })
+  
+  observeEvent(input$button_Act2, {
+    output$to_Act2 <- renderText("Forward: No action possible")
+    v$doCalcAndPlot <- input$button_Act2 #CalcAndPlot
+  })
+  
+  observeEvent(input$button_Act_Continue2, {
+    js$collapse("box_Act2")
+    js$collapse("box_Plan2")
+    js$collapse("box_Check2")
+    
+    output$to_Plan2 <- renderText("")
+    output$to_Check2 <- renderText("")
+    output$to_Act2 <- renderText("")
+    
+  })
+  
   
   
   

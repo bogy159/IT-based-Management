@@ -235,7 +235,7 @@ ui <- dashboardPage(
                   dateInput(
                     "ti_Do_timestamp2",
                     "Date",
-                    value = "2020-01-01",
+                    value = "2020-03-31",
                     min = "2020-01-01"
                   ),
                   textInput(
@@ -272,21 +272,21 @@ ui <- dashboardPage(
                   collapsed = TRUE,
                   actionButton("button_Check2", "Check"),
                   verbatimTextOutput("to_Check2", placeholder = TRUE)
-                ))
+                ),
                
-              #   box(
-              #     id = "box_Act2",
-              #     title = "Fourth Step (Act)",
-              #     width = 3,
-              #     align = "center",
-              #     status = "primary",
-              #     solidHeader = TRUE,
-              #     collapsible = TRUE,
-              #     collapsed = TRUE,
-              #     actionButton("button_Act", "Act"),
-              #     verbatimTextOutput("to_Act", placeholder = TRUE),
-              #     actionButton("button_Act_Continue", "Continue")
-              #   ),
+                box(
+                  id = "box_Act2",
+                  title = "Fourth Step (Act)",
+                  width = 3,
+                  align = "center",
+                  status = "primary",
+                  solidHeader = TRUE,
+                  collapsible = TRUE,
+                  collapsed = TRUE,
+                  actionButton("button_Act2", "Act"),
+                  verbatimTextOutput("to_Act2", placeholder = TRUE),
+                  actionButton("button_Act_Continue2", "Continue")
+                ))
               #   
               #   box(
               #     title = "Timeline2",
