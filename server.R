@@ -191,26 +191,12 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$button_Check2, {
-    
-    # d1t1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.75)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.75)))
-    # d1t2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.5)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.5)))
-    # d1t3 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0.25)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.25)))
-    # d1t4 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2)*0)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0)))
-    
-    # d1t1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * (as.numeric(input$ti_Contract_Size2) - as.numeric(input$ti_Contract_Size2) / 4))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2)*0.75)))
-    
-    
-    # d12 <- (log(100/100) + (0.05 + (0.2^2)/2) * 0.75)/(0.2*(sqrt(0.75)))
-    # Nd1t1 <-pnorm(d1t1,lower.tail = TRUE)
      
     baseERRI <- dbReadTable(sqlite, "Economic_Resource_Risky_Income")
     lastValues <- as.numeric(tail(baseERRI[,3],2))
     
     Nd1t<- as.numeric(lastValues[2])
     Nd1tm1<- as.numeric(lastValues[1])
-    
-    
-    
     
     output$to_Check2 <- renderText(({paste("Delta N(d1) =", Nd1t - Nd1tm1)}))
   
@@ -219,8 +205,102 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$button_Act2, {
-    output$to_Act2 <- renderText("Forward: No action possible")
+    
+    t <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(input$ti_Do_timestamp2), unit="weeks"))/52.25
+    t <- round(t, digits = 2)
+    
+    d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+    Nd1 <- pnorm(d1,lower.tail = TRUE)
+    # d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+    # Nd2 <- pnorm(d2,lower.tail = TRUE)
+    
+    d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+    Nd2 <- pnorm(d2,lower.tail = TRUE)
+    
+    # d2 <- d1 - (as.numeric(input$ti_Stock_Volatility2)/100) * sqrt(t)
+    # Nd2 <- pnorm(d2,lower.tail = TRUE)
+      
+    Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
+    Asset <- Nd1 * as.numeric(input$ti_Do_Stock_Price2)
+    FairValue <- Asset - Liability
+    # proba <- exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100))
+    baseSDS <- dbReadTable(sqlite, "Stock_Derivative_static")
+    lastValue <- as.numeric(tail(baseSDS[,1],1))
+    # lastValue <- as.numeric(baseSDS[1,1])
+    
+    
+    
+    output$to_Act2 <- renderText(({paste("Portfolio Fair Value =", FairValue)}))
+    # v$doCalcAndPlot <- input$button_Act2 #CalcAndPlot
+    
+    
+    temp_db_Asset <-
+      cbind.data.frame(
+        as.character(input$ti_Do_timestamp2),
+        Asset
+      )
+    names(temp_db_Asset) <-
+      c(
+        "timestamp",
+        "Fair_Value"
+      )
+    dbWriteTable(sqlite,
+                 "Asset",
+                 temp_db_Asset,
+                 append = TRUE)
+    
+    temp_db_Liability <-
+      cbind.data.frame(
+        as.character(input$ti_Do_timestamp2),
+        Liability
+      )
+    names(temp_db_Liability) <-
+      c(
+        "timestamp",
+        "Fair_Value"
+      )
+    dbWriteTable(sqlite,
+                 "Liability",
+                 temp_db_Liability,
+                 append = TRUE)
+    
+    temp_db_Off_Balance <-
+      cbind.data.frame(
+        as.character(input$ti_Do_timestamp2)
+      )
+    names(temp_db_Off_Balance) <-
+      c(
+        "timestamp"
+      )
+    dbWriteTable(sqlite,
+                 "Off_Balance",
+                 temp_db_Off_Balance,
+                 append = TRUE)
+    
+    
+    
+    temp_db_Derivative_Instrument_Dynamic <-
+      cbind.data.frame(
+        lastValue,
+        as.character(input$ti_Do_timestamp2),
+        FairValue
+      )
+    names(temp_db_Derivative_Instrument_Dynamic) <-
+      c(
+        "Stock_Derivative_Static_ID",
+        "timestamp",
+        "Fair_Value"
+      )
+    dbWriteTable(sqlite,
+                 "Derivative_Instrument_Dynamic",
+                 temp_db_Derivative_Instrument_Dynamic,
+                 append = TRUE)
+    
+    
     v$doCalcAndPlot <- input$button_Act2 #CalcAndPlot
+    
+    
+    
   })
   
   observeEvent(input$button_Act_Continue2, {
@@ -350,18 +430,18 @@ server <- function(input, output, session) {
       #legacy calc
       temp_db_draw$TtM <-
         as.numeric(difftime(
-          as.Date(isolate(input$ti_Expiration_Date)),
+          as.Date(isolate(input$ti_Expiration_Date2)),
           as.Date(temp_db_draw$Pricing_Date),
           unit = "weeks"
         )) / 52.1775
       temp_db_draw$Interest_Rate <-
-        as.numeric(input$ti_Interest_Rate) / 100
+        as.numeric(input$ti_Interest_Rate2) / 100
       temp_db_draw$Interest_Rate_Cont <-
         log(1 + temp_db_draw$Interest_Rate)
       temp_db_draw$F_Price <-
-        temp_db_draw[1, 3] * (1 + as.numeric(input$ti_Interest_Rate) / 100) ^ (as.numeric(difftime(
-          as.Date(input$ti_Expiration_Date),
-          as.Date(input$ti_Contracting_Date),
+        temp_db_draw[1, 3] * (1 + as.numeric(input$ti_Interest_Rate2) / 100) ^ (as.numeric(difftime(
+          as.Date(input$ti_Expiration_Date2),
+          as.Date(input$ti_Contracting_Date2),
           unit = "weeks"
         )) / 52.1775)
       temp_db_draw$Liability <-
@@ -381,7 +461,7 @@ server <- function(input, output, session) {
       temp_db_Derivative_Instrument_Dynamic <-
         cbind.data.frame(
           tail(temp_Stock_Derivative_Static$Stock_Derivative_Static_ID, 1),
-          as.character(input$ti_Do_timestamp),
+          as.character(input$ti_Do_timestamp2),
           tail(temp_db_draw$'Forward Value', 1)
         )
       names(temp_db_Derivative_Instrument_Dynamic) <-
@@ -404,7 +484,7 @@ server <- function(input, output, session) {
             temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
             1
           ),
-          as.character(input$ti_Do_timestamp),
+          as.character(input$ti_Do_timestamp2),
           1,
           tail(temp_db_draw$'Asset', 1),
           1
@@ -433,7 +513,7 @@ server <- function(input, output, session) {
             temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
             1
           ),
-          as.character(input$ti_Do_timestamp),
+          as.character(input$ti_Do_timestamp2),
           tail(temp_db_draw$'Liability', 1),
           1
         )
@@ -462,7 +542,7 @@ server <- function(input, output, session) {
               temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
               1
             ),
-            as.character(input$ti_Do_timestamp),
+            as.character(input$ti_Do_timestamp2),
             tail(temp_Derivative_Instrument_Dynamic$Fair_Value, 1)
           )
         names(temp_db_asset) <-
@@ -480,7 +560,7 @@ server <- function(input, output, session) {
               temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
               1
             ),
-            as.character(input$ti_Do_timestamp),
+            as.character(input$ti_Do_timestamp2),
             tail(temp_Derivative_Instrument_Dynamic$Fair_Value, 1)
           )
         names(temp_db_liability) <-

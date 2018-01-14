@@ -286,17 +286,17 @@ ui <- dashboardPage(
                   actionButton("button_Act2", "Act"),
                   verbatimTextOutput("to_Act2", placeholder = TRUE),
                   actionButton("button_Act_Continue2", "Continue")
-                ))
-              #   
-              #   box(
-              #     title = "Timeline2",
-              #     width = 12,
-              #     status = "primary",
-              #     solidHeader = TRUE,
-              #     collapsible = TRUE,
-              #     dygraphOutput("timeline", height = 250)
-              #   )
-              # )
+                ),
+
+                box(
+                  title = "Timeline",
+                  width = 12,
+                  status = "primary",
+                  solidHeader = TRUE,
+                  collapsible = TRUE,
+                  dygraphOutput("timeline2", height = 250)
+                )
+              )
               ),
       
       
