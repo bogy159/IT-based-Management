@@ -297,7 +297,7 @@ server <- function(input, output, session) {
                  append = TRUE)
     
     
-    v$doCalcAndPlot <- input$button_Act2 #CalcAndPlot
+    v2$doCalcAndPlot2 <- input$button_Act2 #CalcAndPlot
     
     
     
@@ -416,6 +416,208 @@ server <- function(input, output, session) {
   })
   
 
+  v2 <- reactiveValues(doCalcAndPlot2 = FALSE) #recalc and redraw
+  
+  output$timeline2 <- renderDygraph({
+    if (v2$doCalcAndPlot2 == FALSE)
+      return()
+    isolate({
+      temp_db_draw <- dbReadTable(sqlite, "Stock_Pricing_Dynamic")
+      temp_db_draw$Pricing_Date <-
+        as.Date(as.POSIXct(temp_db_draw$timestamp))
+      
+      t <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(input$ti_Do_timestamp2), unit="weeks"))/52.25
+      t <- round(t, digits = 2)
+      
+      d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+      Nd1 <- pnorm(d1,lower.tail = TRUE)
+      
+      #legacy calc
+      temp_db_draw$TtM <-
+        as.numeric(difftime(
+          as.Date(isolate(input$ti_Expiration_Date2)),
+          as.Date(temp_db_draw$Pricing_Date),
+          unit = "weeks"
+        )) / 52.1775
+      
+      temp_db_draw$TtM <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(temp_db_draw$Pricing_Date), unit="weeks"))/52.25
+      temp_db_draw$TtM <- round(temp_db_draw$TtM, digits = 2)
+      
+      temp_db_draw$Interest_Rate <-
+        as.numeric(input$ti_Interest_Rate2) / 100
+      temp_db_draw$Interest_Rate_Cont <-
+        log(1 + temp_db_draw$Interest_Rate)
+      temp_db_draw$F_Price <-
+        temp_db_draw[1, 3] * (1 + as.numeric(input$ti_Interest_Rate2) / 100) ^ (as.numeric(difftime(
+          as.Date(input$ti_Expiration_Date2),
+          as.Date(input$ti_Contracting_Date2),
+          unit = "weeks"
+        )) / 52.1775)
+      
+      temp_db_draw$d1 <- 
+        (log(as.numeric(temp_db_draw$Stock_Price)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * temp_db_draw$TtM)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(temp_db_draw$TtM)))
+      temp_db_draw$Nd1 <- pnorm(temp_db_draw$d1,lower.tail = TRUE)
+      
+      temp_db_draw$d2 <- 
+        (log(as.numeric(temp_db_draw$Stock_Price)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * temp_db_draw$TtM)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(temp_db_draw$TtM)))
+      temp_db_draw$Nd2 <- pnorm(temp_db_draw$d2,lower.tail = TRUE)
+      # Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
+      
+      # temp_db_draw$Liability <-
+      #   -temp_db_draw$F_Price * exp(-temp_db_draw$Interest_Rate_Cont * temp_db_draw$TtM)
+      
+      temp_db_draw$Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * temp_db_draw$TtM * (as.numeric(input$ti_Interest_Rate2)/100)) * temp_db_draw$Nd2 * (-1)
+      
+      temp_db_draw$Asset <- temp_db_draw$Stock_Price * temp_db_draw$Nd1
+      temp_db_draw$'Forward Value' <-
+        round(temp_db_draw$Liability + temp_db_draw$Asset, 1)
+      
+      #Composing XTS
+      temp_xts_draw <-
+        xts(x = temp_db_draw[, c("Asset", "Liability", "Forward Value")], order.by =
+              temp_db_draw[, 5])
+      
+      #Derivative_Instrument_Dynamic entry
+      temp_Stock_Derivative_Static <-
+        dbReadTable(sqlite, "Stock_Derivative_Static")
+      temp_db_Derivative_Instrument_Dynamic <-
+        cbind.data.frame(
+          tail(temp_Stock_Derivative_Static$Stock_Derivative_Static_ID, 1),
+          as.character(input$ti_Do_timestamp2),
+          tail(temp_db_draw$'Forward Value', 1)
+        )
+      names(temp_db_Derivative_Instrument_Dynamic) <-
+        c("Stock_Derivative_Static_ID",
+          "timestamp",
+          "Fair_Value")
+      dbWriteTable(
+        sqlite,
+        "Derivative_Instrument_Dynamic",
+        temp_db_Derivative_Instrument_Dynamic,
+        append = TRUE
+      )
+      
+      
+      
+      #Economic_Resource_Risky_Income entry
+      temp_Derivative_Instrument_Dynamic <-
+        dbReadTable(sqlite, "Derivative_Instrument_Dynamic")
+      temp_db_Economic_Resource_Risky_Income <-
+        cbind.data.frame(
+          tail(
+            temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
+            1
+          ),
+          as.character(input$ti_Do_timestamp2),
+          Nd1,
+          tail(temp_db_draw$'Asset', 1),
+          1
+        )
+      names(temp_db_Economic_Resource_Risky_Income) <-
+        c(
+          "Derivative_Instrument_Dynamic_ID",
+          "timestamp",
+          "Nd1t",
+          "Value",
+          "Asset_Or_Liability"
+        )
+      dbWriteTable(
+        sqlite,
+        "Economic_Resource_Risky_Income",
+        temp_db_Economic_Resource_Risky_Income,
+        append = TRUE
+      )
+      
+      #Economic_Resource_Fixed_Income entry
+      temp_Derivative_Instrument_Dynamic <-
+        dbReadTable(sqlite, "Derivative_Instrument_Dynamic")
+      temp_db_Economic_Resource_Fixed_Income <-
+        cbind.data.frame(
+          tail(
+            temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
+            1
+          ),
+          as.character(input$ti_Do_timestamp2),
+          tail(temp_db_draw$'Liability', 1),
+          1
+        )
+      names(temp_db_Economic_Resource_Fixed_Income) <-
+        c(
+          "Derivative_Instrument_Dynamic_ID",
+          "timestamp",
+          "Present_Value",
+          "Asset_Or_Liability"
+        )
+      dbWriteTable(
+        sqlite,
+        "Economic_Resource_Fixed_Income",
+        temp_db_Economic_Resource_Fixed_Income,
+        append = TRUE
+      )
+      
+      #Asset, Liability of Off Balance
+      if (tail(temp_db_draw$'Forward Value', 1) > 0) {
+        #Asset
+        temp_Derivative_Instrument_Dynamic <-
+          dbReadTable(sqlite, "Derivative_Instrument_Dynamic")
+        temp_db_asset <-
+          cbind.data.frame(
+            tail(
+              temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
+              1
+            ),
+            as.character(input$ti_Do_timestamp2),
+            tail(temp_Derivative_Instrument_Dynamic$Fair_Value, 1)
+          )
+        names(temp_db_asset) <-
+          c("Derivative_Instrument_Dynamic_ID",
+            "timestamp",
+            "Fair_Value")
+        dbWriteTable(sqlite, "Asset", temp_db_asset, append = TRUE)
+      } else if (tail(temp_db_draw$'Forward Value', 1) < 0) {
+        #Liability
+        temp_Derivative_Instrument_Dynamic <-
+          dbReadTable(sqlite, "Derivative_Instrument_Dynamic")
+        temp_db_liability <-
+          cbind.data.frame(
+            tail(
+              temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
+              1
+            ),
+            as.character(input$ti_Do_timestamp2),
+            tail(temp_Derivative_Instrument_Dynamic$Fair_Value, 1)
+          )
+        names(temp_db_liability) <-
+          c("Derivative_Instrument_Dynamic_ID",
+            "timestamp",
+            "Fair_Value")
+        dbWriteTable(sqlite, "Liability", temp_db_liability, append = TRUE)
+      }
+      else {
+        # Off_Balance
+        temp_Derivative_Instrument_Dynamic <-
+          dbReadTable(sqlite, "Derivative_Instrument_Dynamic")
+        temp_db_off_balance <-
+          cbind.data.frame(
+            tail(
+              temp_Derivative_Instrument_Dynamic$Derivative_Instrument_Dynamic_ID,
+              1
+            ),
+            as.character(input$ti_Do_timestamp)
+          )
+        names(temp_db_off_balance) <-
+          c("Derivative_Instrument_Dynamic_ID",
+            "timestamp")
+        dbWriteTable(sqlite, "Off_Balance", temp_db_off_balance, append = TRUE)
+      }
+      
+      #Plotting XTS
+      dygraph(temp_xts_draw) %>%
+        dyRangeSelector()
+    })
+  })
+  
+  
   
   v <- reactiveValues(doCalcAndPlot = FALSE) #recalc and redraw
   
