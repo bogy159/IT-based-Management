@@ -235,7 +235,7 @@ ui <- dashboardPage(
                   dateInput(
                     "ti_Do_timestamp2",
                     "Date",
-                    value = "2020-03-31",
+                    value = "2020-01-01",
                     min = "2020-01-01"
                   ),
                   textInput(

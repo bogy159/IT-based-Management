@@ -58,9 +58,13 @@ server <- function(input, output, session) {
     d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
     Nd1 <- pnorm(d1,lower.tail = TRUE)
     Nd2 <- pnorm(d2,lower.tail = TRUE)
-
-
-    PresentValue <- 100 #???
+    
+   
+    Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * as.numeric(input$ti_Number_Of_Contracts2) * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
+    Asset <- Nd1 * as.numeric(input$ti_Exercise_Or_Forward_Price2)
+    FairValue <- Asset - Liability
+    
+    PresentValue <- FairValue #???
     assetOrLiability<- 1 #???
 
     temp_db_Economic_Resource_Risky_Income <-
@@ -124,26 +128,33 @@ server <- function(input, output, session) {
   
   observeEvent(input$button_Plan2, {
     
-    # d1 <- (log(100/100) + (0.05 + (0.2^2)/2) * 1)/(0.2*(1^-2))
-    # d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
-    # d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * as.numeric(input$ti_Contract_Size2))/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(as.numeric(input$ti_Contract_Size2))))
-    # neshtotam <- as.numeric(input$ti_Do_Stock_Price2) + as.numeric(input$ti_Exercise_Or_Forward_Price2)
-    # pnorm(d1,lower.tail = TRUE)
-    # Nd1 <- pnorm(d1,lower.tail = TRUE)
-    # Nd2 <- pnorm(d2,lower.tail = TRUE)
     
-    PresentValue <-100#???
     
     t <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(input$ti_Do_timestamp2), unit="weeks"))/52.25
     t <- round(t, digits = 2)
     
-    d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
-    Nd1 <- pnorm(d1,lower.tail = TRUE)
-    d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
-    Nd2 <- pnorm(d2,lower.tail = TRUE)
+    if (t<=0)
+    {
+      Nd1 <- 0
+      Nd2 <- 0
+    }
+    
+    else if (t>0)
+    {
+      d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+      Nd1 <- pnorm(d1,lower.tail = TRUE)
+      d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
+      Nd2 <- pnorm(d2,lower.tail = TRUE)
+    }
+    
     
     output$to_Plan2 <- renderText(({paste("N(d1) =", Nd1)}))
     
+    Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
+    Asset <- Nd1 * as.numeric(input$ti_Do_Stock_Price2)
+    FairValue <- Asset - Liability
+    
+    PresentValue <-FairValue#???
     assetOrLiability<-1 #???
     
     
@@ -200,7 +211,6 @@ server <- function(input, output, session) {
     
     output$to_Check2 <- renderText(({paste("Delta N(d1) =", Nd1t - Nd1tm1)}))
   
-    # output$to_Check2 <- renderText(d12)
     js$collapse("box_Act2")
   })
   
@@ -209,16 +219,21 @@ server <- function(input, output, session) {
     t <- as.numeric(difftime(as.Date(input$ti_Expiration_Date2), as.Date(input$ti_Do_timestamp2), unit="weeks"))/52.25
     t <- round(t, digits = 2)
     
+    if (t<=0)
+    {
+      Nd1 <- 0
+      Nd2 <- 0
+    }
+    
+    else if (t>0)
+    {
+    
     d1 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 + ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
     Nd1 <- pnorm(d1,lower.tail = TRUE)
-    # d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
-    # Nd2 <- pnorm(d2,lower.tail = TRUE)
     
     d2 <- (log(as.numeric(input$ti_Do_Stock_Price2)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * t)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(t)))
     Nd2 <- pnorm(d2,lower.tail = TRUE)
-    
-    # d2 <- d1 - (as.numeric(input$ti_Stock_Volatility2)/100) * sqrt(t)
-    # Nd2 <- pnorm(d2,lower.tail = TRUE)
+    }
       
     Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
     Asset <- Nd1 * as.numeric(input$ti_Do_Stock_Price2)
@@ -461,10 +476,6 @@ server <- function(input, output, session) {
       temp_db_draw$d2 <- 
         (log(as.numeric(temp_db_draw$Stock_Price)/as.numeric(input$ti_Exercise_Or_Forward_Price2)) + (as.numeric(input$ti_Interest_Rate2)/100 - ((as.numeric(input$ti_Stock_Volatility2)/100)^2)/2) * temp_db_draw$TtM)/((as.numeric(input$ti_Stock_Volatility2)/100)*(sqrt(temp_db_draw$TtM)))
       temp_db_draw$Nd2 <- pnorm(temp_db_draw$d2,lower.tail = TRUE)
-      # Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * t * (as.numeric(input$ti_Interest_Rate2)/100)) * Nd2
-      
-      # temp_db_draw$Liability <-
-      #   -temp_db_draw$F_Price * exp(-temp_db_draw$Interest_Rate_Cont * temp_db_draw$TtM)
       
       temp_db_draw$Liability <- as.numeric(input$ti_Exercise_Or_Forward_Price2) * exp((-1) * temp_db_draw$TtM * (as.numeric(input$ti_Interest_Rate2)/100)) * temp_db_draw$Nd2 * (-1)
       
